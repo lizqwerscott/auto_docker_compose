@@ -27,7 +27,11 @@ struct Cli {
 
 fn main() {
     let args = Cli::from_args();
-    // println!("{:?}", args);
+
+    if !args.path.exists() || !args.path.is_dir() {
+        println!("{} is not a exists path or not is dir", args.path.display());
+        process::exit(1);
+    }
 
     println!("search {}", args.path.display());
     let mut compose_paths = search_compose_dir(&args.path);
@@ -156,6 +160,10 @@ async fn get_compose_status(path_str: &String) -> Result<(String, ComposeStatus)
 }
 
 fn list_compose_dir(compose_paths: &Vec<String>) {
+    if compose_paths.len() < 1 {
+        return;
+    }
+
     let mut compose_task = Vec::new();
 
     for compose in compose_paths {
