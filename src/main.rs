@@ -1,108 +1,82 @@
-use std::env;
 use std::process;
 use std::path::Path;
 use std::fs;
 use futures::future::join_all;
 use futures::executor::block_on;
+use std::path::PathBuf;
+use structopt::StructOpt;
+
+#[derive(StructOpt, Debug)]
+#[structopt(name = "adcompose")]
+struct Cli {
+    // Command
+    // List: list filter or all the compose project
+    // Start: start filter or all the compose project
+    // Stop: stop filter or all the compose project
+    /// The compose command, list, start, stop
+    command: String,
+
+    /// filter compose name
+    #[structopt(default_value = "")]
+    filter_name: String,
+
+    /// The search compose path
+    #[structopt(short, long, default_value = "./")]
+    path: PathBuf,
+}
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() <= 1 {
-        eprintln!("not have command!");
-        process::exit(1);
-    }
+    let args = Cli::from_args();
+    // println!("{:?}", args);
 
-    let command: String = args[1].clone();
-    let input_path = Path::new("./");
-    let mut filter_compose: Option<&String> = None;
+    println!("search {}", args.path.display());
+    let mut compose_paths = search_compose_dir(&args.path);
+    if args.filter_name != "" {
+        let mut paths = Vec::new();
+        for compose in compose_paths {
+            let path = Path::new(&compose);
+            let filename = path.file_name().unwrap().to_str().unwrap();
 
-    if args.len() > 2 {
-        // let path = Path::new(&args[2]);
-        // if path.exists() {
-        //     input_path = path;
-        // } else {
-        //     filter_compose = Some(&args[2]);
-        // }
-        filter_compose = Some(&args[2]);
-    }
-    println!("search {}", input_path.display());
-    let compose_paths = search_compose_dir(&input_path);
-
-    match command.as_str() {
-        "list" => {
-            match filter_compose {
-                Some(f_compose) => {
-                    let mut paths = Vec::new();
-                    for compose in compose_paths {
-                        if compose.contains(f_compose) {
-                            paths.push(compose);
-                        }
-                    }
-                    list_compose_dir(&paths);
-                },
-                _ => {
-                    list_compose_dir(&compose_paths);
-                },
+            if filename == args.filter_name || filename.contains(&args.filter_name) {
+                paths.push(compose);
             }
+        }
+        compose_paths = paths;
+    }
+
+    match args.command.as_str() {
+        "list" => {
+            list_compose_dir(&compose_paths);
         },
         "start" => {
-            match filter_compose {
-                Some(f_compose) => {
-                    let mut paths = Vec::new();
-                    for compose in compose_paths {
-                        let path = Path::new(&compose);
-                        let filename = path.file_name().unwrap().to_str().unwrap();
-
-                        if filename == *f_compose || filename.contains(f_compose) {
-                            paths.push(compose);
-                        }
-                    }
-                    println!("接下来将会启动这些项目: ");
-                    list_compose_dir(&paths);
-                    println!("(y/n):");
-                    let mut input_string = String::new();
-                    std::io::stdin().read_line(&mut input_string).unwrap();
-                    if input_string.trim() == "y" {
-                        println!("启动中......");
-                        start_composes(&paths);
-                    }
-                },
-                _ => {
-                    start_composes(&compose_paths);
-                },
+            println!("接下来将会启动这些项目: ");
+            list_compose_dir(&compose_paths);
+            let executorp = is_yes("是否执行");
+            if executorp {
+                println!("启动中......");
+                start_composes(&compose_paths);
             }
         },
         "stop" => {
-            match filter_compose {
-                Some(f_compose) => {
-                    let mut paths = Vec::new();
-                    for compose in compose_paths {
-                        let path = Path::new(&compose);
-                        let filename = path.file_name().unwrap().to_str().unwrap();
-
-                        if filename == *f_compose || filename.contains(f_compose) {
-                            paths.push(compose);
-                        }
-                    }
-                    println!("接下来将会关闭这些项目: ");
-                    list_compose_dir(&paths);
-                    println!("(y/n):");
-                    let mut input_string = String::new();
-                    std::io::stdin().read_line(&mut input_string).unwrap();
-                    if input_string.trim() == "y" {
-                        println!("关闭中......");
-                        stop_composes(&paths);
-                    }
-                },
-                _ => {
-                    stop_composes(&compose_paths);
-                },
+            println!("接下来将会关闭这些项目: ");
+            list_compose_dir(&compose_paths);
+            let executorp = is_yes("是否执行");
+            if executorp {
+                println!("关闭中......");
+                stop_composes(&compose_paths);
             }
         },
         _ => {
             println!("not have command!");
         },
     }
+}
+
+fn is_yes(promt: &str) -> bool {
+    println!("{}(y/n):", promt);
+    let mut input_string = String::new();
+    std::io::stdin().read_line(&mut input_string).unwrap();
+    input_string.trim() == "y" || input_string.trim() == "yes"
 }
 
 fn is_compose_dir(input_path: &Path) -> bool {
