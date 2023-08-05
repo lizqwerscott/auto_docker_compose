@@ -306,7 +306,7 @@ pub fn run(command: String, path: &Path, filter_name: Option<String>) -> BDEResu
             }
         }
         ComposeCommand::Unknown => {
-            if command.as_str() == "list" {
+            if command.as_str() == "status" {
                 print_docker_compose_status(&docker_composes);
             } else {
                 return Err(ba_error("未知命令"));
