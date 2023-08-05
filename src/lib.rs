@@ -2,8 +2,8 @@ use core::fmt::{Display, Formatter};
 use futures::executor::block_on;
 use futures::future::join_all;
 use std::fs;
-use std::process;
 use std::path::Path;
+use std::process;
 
 mod utils;
 
@@ -248,6 +248,21 @@ fn print_docker_compose_status(docker_composes: &Vec<DockerCompose>) {
     print_n(&print_driver, f_n);
 }
 
+fn print_docker_compose_need_status(docker_composes: &Vec<&DockerCompose>) {
+    // Print result table
+    let f_n = 57;
+    let print_driver = String::from("=");
+    print_n(&print_driver, f_n);
+    println!("{:50} {:20}", "Project", "Status");
+    print_n(&print_driver, f_n);
+
+    for compose in docker_composes {
+        println!("{:50} {:20}", compose.docker_name, compose.status);
+    }
+
+    print_n(&print_driver, f_n);
+}
+
 pub fn run(command: String, path: &Path, filter_name: Option<String>) -> BDEResult<()> {
     let mut docker_composes = search_compose_dir(path, filter_name)?;
 
@@ -258,51 +273,66 @@ pub fn run(command: String, path: &Path, filter_name: Option<String>) -> BDEResu
 
     match compose_command {
         ComposeCommand::Start => {
-            println!("接下来会启动以下项目:");
             let mut start_composes: Vec<&DockerCompose> = Vec::new();
             for compose in docker_composes.iter() {
                 if compose.status == ComposeStatus::Stop {
                     start_composes.push(compose);
                 }
             }
-            let executorp = is_yes("是否执行");
-            if executorp {
-                println!("启动中......");
-                run_composes_command(&start_composes, &compose_command)?;
-                refresh_composes_status(&mut docker_composes)?;
-                print_docker_compose_status(&docker_composes);
+            if start_composes.len() < 1 {
+                println!("没有找到符合条件的项目");
+            } else {
+                println!("接下来会启动以下项目:");
+                print_docker_compose_need_status(&start_composes);
+                let executorp = is_yes("是否执行");
+                if executorp {
+                    println!("启动中......");
+                    run_composes_command(&start_composes, &compose_command)?;
+                    refresh_composes_status(&mut docker_composes)?;
+                    print_docker_compose_status(&docker_composes);
+                }
             }
         }
         ComposeCommand::Stop => {
-            println!("接下来会关闭以下项目:");
             let mut stop_composes: Vec<&DockerCompose> = Vec::new();
             for compose in docker_composes.iter() {
                 if compose.status == ComposeStatus::Start {
                     stop_composes.push(compose);
                 }
             }
-            let executorp = is_yes("是否执行");
-            if executorp {
-                println!("关闭中......");
-                run_composes_command(&stop_composes, &compose_command)?;
-                refresh_composes_status(&mut docker_composes)?;
-                print_docker_compose_status(&docker_composes);
+            if stop_composes.len() < 1 {
+                println!("没有找到符合条件的项目");
+            } else {
+                println!("接下来会关闭以下项目:");
+                print_docker_compose_need_status(&stop_composes);
+                let executorp = is_yes("是否执行");
+                if executorp {
+                    println!("关闭中......");
+                    run_composes_command(&stop_composes, &compose_command)?;
+                    refresh_composes_status(&mut docker_composes)?;
+                    print_docker_compose_status(&docker_composes);
+                }
             }
         }
         ComposeCommand::Restart => {
-            println!("接下来会重启以下项目:");
             let mut restart_composes: Vec<&DockerCompose> = Vec::new();
             for compose in docker_composes.iter() {
                 if compose.status == ComposeStatus::Start {
                     restart_composes.push(compose);
                 }
             }
-            let executorp = is_yes("是否执行");
-            if executorp {
-                println!("重启中......");
-                run_composes_command(&restart_composes, &compose_command)?;
-                refresh_composes_status(&mut docker_composes)?;
-                print_docker_compose_status(&docker_composes);
+            if restart_composes.len() < 1 {
+                println!("没有找到符合条件的项目");
+            } else {
+                println!("接下来会重启以下项目:");
+                print_docker_compose_need_status(&restart_composes);
+                let executorp = is_yes("是否执行");
+                if executorp {
+                    println!("重启中......");
+                    run_composes_command(&restart_composes, &compose_command)?;
+                    refresh_composes_status(&mut docker_composes)?;
+                    print_docker_compose_status(&docker_composes);
+                }
             }
         }
         ComposeCommand::Unknown => {
