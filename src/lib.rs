@@ -19,6 +19,7 @@ pub enum ComposeCommand {
     Start,
     Stop,
     Restart,
+    Logs,
     Unknown,
 }
 
@@ -37,6 +38,7 @@ impl From<ComposeCommand> for String {
             ComposeCommand::Start => "启动".into(),
             ComposeCommand::Stop => "关闭".into(),
             ComposeCommand::Restart => "重启".into(),
+            ComposeCommand::Logs => "日志".into(),
             ComposeCommand::Unknown => "未知命令".into(),
         }
     }
@@ -48,6 +50,7 @@ impl From<String> for ComposeCommand {
             "start" => ComposeCommand::Start,
             "stop" => ComposeCommand::Stop,
             "restart" => ComposeCommand::Restart,
+            "logs" => ComposeCommand::Logs,
             _ => ComposeCommand::Unknown,
         }
     }
@@ -106,6 +109,7 @@ impl DockerCompose {
             ComposeCommand::Start => "up -d",
             ComposeCommand::Stop => "down",
             ComposeCommand::Restart => "restart",
+            ComposeCommand::Logs => "logs",
             ComposeCommand::Unknown => return Err(ba_error("未知命令")),
         };
         let command = format!("cd '{}' && sudo docker compose {}", self.path, command);
@@ -235,14 +239,14 @@ pub fn run_composes_command(
 
 fn print_docker_compose_status(docker_composes: &Vec<DockerCompose>) {
     // Print result table
-    let f_n = 57;
+    let f_n = 33;
     let print_driver = String::from("=");
     print_n(&print_driver, f_n);
-    println!("{:50} {:20}", "Project", "Status");
+    println!("{:<5} {:<20} {:6}", "Index", "Project", "Status");
     print_n(&print_driver, f_n);
 
-    for compose in docker_composes {
-        println!("{:50} {:20}", compose.docker_name, compose.status);
+    for (index, compose) in docker_composes.iter().enumerate() {
+        println!("{:<5} {:<20} {:6}", index, compose.docker_name, compose.status);
     }
 
     print_n(&print_driver, f_n);
@@ -250,14 +254,14 @@ fn print_docker_compose_status(docker_composes: &Vec<DockerCompose>) {
 
 fn print_docker_compose_need_status(docker_composes: &Vec<&DockerCompose>) {
     // Print result table
-    let f_n = 57;
+    let f_n = 33;
     let print_driver = String::from("=");
     print_n(&print_driver, f_n);
-    println!("{:50} {:20}", "Project", "Status");
+    println!("{:<5} {:<20} {:6}", "Index", "Project", "Status");
     print_n(&print_driver, f_n);
 
-    for compose in docker_composes {
-        println!("{:50} {:20}", compose.docker_name, compose.status);
+    for (index, compose) in docker_composes.iter().enumerate() {
+        println!("{:<5} {:<20} {:6}", index, compose.docker_name, compose.status);
     }
 
     print_n(&print_driver, f_n);
@@ -332,6 +336,25 @@ pub fn run(command: String, path: &Path, filter_name: Option<String>) -> BDEResu
                     run_composes_command(&restart_composes, &compose_command)?;
                     refresh_composes_status(&mut docker_composes)?;
                     print_docker_compose_status(&docker_composes);
+                }
+            }
+        }
+        ComposeCommand::Logs => {
+            let mut logs_composes: Vec<&DockerCompose> = Vec::new();
+            for compose in docker_composes.iter() {
+                if compose.status == ComposeStatus::Start {
+                    logs_composes.push(compose);
+                }
+            }
+            if logs_composes.len() < 1 {
+                println!("没有找到符合条件的项目");
+            } else {
+                println!("接下来会查看以下项目的日志:");
+                print_docker_compose_need_status(&logs_composes);
+                let executorp = is_yes("是否执行");
+                if executorp {
+                    println!("查看日志中......");
+                    run_composes_command(&logs_composes, &compose_command)?;
                 }
             }
         }
