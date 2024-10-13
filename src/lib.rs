@@ -81,7 +81,7 @@ impl DockerCompose {
     }
 
     pub async fn refresh_status(&mut self) -> BDEResult<()> {
-        let command = format!("cd '{}' && sudo docker compose top", &self.path);
+        let command = format!("cd '{}' && docker compose top", &self.path);
         match process::Command::new("bash")
             .arg("-c")
             .arg(command)
@@ -112,7 +112,7 @@ impl DockerCompose {
             ComposeCommand::Logs => "logs",
             ComposeCommand::Unknown => return Err(ba_error("未知命令")),
         };
-        let command = format!("cd '{}' && sudo docker compose {}", self.path, command);
+        let command = format!("cd '{}' && docker compose {}", self.path, command);
         match process::Command::new("bash")
             .arg("-c")
             .arg(command)
