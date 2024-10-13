@@ -226,7 +226,9 @@ pub fn run_composes_command(
     for result in results {
         match result {
             Ok(output) => {
-                println!("{}", output);
+                if !output.is_empty() {
+                    println!("{}", output);
+                }
             }
             Err(error) => {
                 eprintln!("{}", error);
