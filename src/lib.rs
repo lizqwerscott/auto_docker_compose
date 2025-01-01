@@ -1,13 +1,22 @@
-use core::fmt::{Display, Formatter};
-use futures::executor::block_on;
-use futures::future::join_all;
-use std::fs;
+use std::fs::{self, File};
+use std::io::Read;
 use std::path::Path;
 use std::process;
+
+use core::fmt::{Display, Formatter};
+
+use futures::executor::block_on;
+use futures::future::join_all;
+use serde::Deserialize;
 
 mod utils;
 
 use utils::{ba_error, is_yes, print_n, BDEResult};
+
+#[derive(Deserialize)]
+struct Config {
+    start_dockers: Vec<String>,
+}
 
 #[derive(PartialEq, Eq)]
 pub enum ComposeStatus {
@@ -248,7 +257,10 @@ fn print_docker_compose_status(docker_composes: &Vec<DockerCompose>) {
     print_n(&print_driver, f_n);
 
     for (index, compose) in docker_composes.iter().enumerate() {
-        println!("{:<5} {:<20} {:6}", index, compose.docker_name, compose.status);
+        println!(
+            "{:<5} {:<20} {:6}",
+            index, compose.docker_name, compose.status
+        );
     }
 
     print_n(&print_driver, f_n);
@@ -263,7 +275,10 @@ fn print_docker_compose_need_status(docker_composes: &Vec<&DockerCompose>) {
     print_n(&print_driver, f_n);
 
     for (index, compose) in docker_composes.iter().enumerate() {
-        println!("{:<5} {:<20} {:6}", index, compose.docker_name, compose.status);
+        println!(
+            "{:<5} {:<20} {:6}",
+            index, compose.docker_name, compose.status
+        );
     }
 
     print_n(&print_driver, f_n);
@@ -361,10 +376,50 @@ pub fn run(command: String, path: &Path, filter_name: Option<String>) -> BDEResu
             }
         }
         ComposeCommand::Unknown => {
+            match command.as_str() {
+                "status" => {
+                    print_docker_compose_status(&docker_composes);
+                }
+                "start_list" => {
+                    // start ./docker-config.json
+                    // 打开文件
+                    let mut file = File::open("docker-config.json")?;
+
+                    // 读取文件内容到字符串
+                    let mut contents = String::new();
+                    file.read_to_string(&mut contents)?;
+
+                    // 解析 JSON 字符串为结构体
+                    let data: Config = serde_json::from_str(&contents)?;
+                    println!("接下来会启动以下项目:");
+                    let mut docker_composes: Vec<DockerCompose> = Vec::new();
+                    for path in data.start_dockers.iter() {
+                        let path = Path::new(path);
+                        if let Some(docker_compose) = DockerCompose::build(path) {
+                            docker_composes.push(docker_compose);
+                        }
+                    }
+
+                    let mut start_docker: Vec<&DockerCompose> = Vec::new();
+                    for i in docker_composes.iter() {
+                        start_docker.push(i);
+                    }
+
+                    print_docker_compose_need_status(&start_docker);
+                    let executorp = is_yes("是否执行");
+                    if executorp {
+                        println!("启动中......");
+                        run_composes_command(&start_docker, &ComposeCommand::Start)?;
+                        refresh_composes_status(&mut docker_composes)?;
+                        print_docker_compose_status(&docker_composes);
+                    }
+                }
+                _ => {
+                    return Err(ba_error("未知命令"));
+                }
+            }
             if command.as_str() == "status" {
-                print_docker_compose_status(&docker_composes);
             } else {
-                return Err(ba_error("未知命令"));
             }
         }
     }

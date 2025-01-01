@@ -9,6 +9,8 @@ edition = "2021"
 [dependencies]
 futures = "0.3.31"
 structopt = "0.3.26"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [[bin]]
   name = "adcompose"
